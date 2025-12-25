@@ -1,6 +1,6 @@
 import logging
 
-from typing import List, Set, Optional
+from typing import List, Set, Optional, Dict, Any, Tuple
 from config.const import(CV_BASE_PATH, TEMPLATE_BASE_PATH)
 from pathlib import Path
 
@@ -13,14 +13,17 @@ class EmailValidationError(Exception):
 
 class EmailHelper:
     
+    @staticmethod
     def get_cv_path(username: str) -> Path:
         """Get CV path based on username."""
         return CV_BASE_PATH / f"CV_{username}.pdf"
     
+    @staticmethod
     def get_template_path(username: str) -> Path:
         """Get template path based on username."""
         return TEMPLATE_BASE_PATH / f"{username}.html"
         
+    @staticmethod
     def render_template(template: str, data: dict) -> str:
         """Replace {{placeholder}} in template with dict values."""
         body = template
@@ -29,7 +32,8 @@ class EmailHelper:
             body = body.replace(placeholder, str(value))
         return body
     
-    def _normalize_emails(emails: List[str]) -> Set[str]:
+    @staticmethod
+    def normalize_emails(emails: List[str]) -> Set[str]:
         """Normalize email addresses."""
         normalized = set()
         for email in emails:
@@ -39,7 +43,8 @@ class EmailHelper:
                     normalized.add(cleaned)
         return normalized
     
-    def _clean_subject(subject: str, name: str) -> str:
+    @staticmethod
+    def clean_subject(subject: str, name: str) -> str:
         """
         Clean subject khusus untuk auto apply lowongan kerja.
         Hanya ganti kata 'Nama' (berbagai case) dengan nama user.
@@ -89,8 +94,11 @@ class EmailHelper:
         
         return subject
     
+    @staticmethod
+    def _validate_and_extract(
+            email_data: Dict[str, Any]
+        ) -> Tuple[Set[str], str, Optional[str]]:
     
-    def _validate_and_extract(email_data: dict) -> tuple[Set[str], str, Optional[str]]:
         """Validate email data and extract required fields."""
         target = email_data.get("email")
         position = email_data.get("position", "").strip()
@@ -99,7 +107,7 @@ class EmailHelper:
         if not target or not isinstance(target, list):
             raise EmailValidationError("Email target must be a non-empty list")
         
-        normalized_targets = EmailHelper._normalize_emails(target)
+        normalized_targets = EmailHelper.normalize_emails(target)
         
         if not normalized_targets:
             raise EmailValidationError("No valid email addresses found")

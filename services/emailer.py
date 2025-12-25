@@ -76,8 +76,8 @@ class EmailSender:
             
             # 4. Get paths based on username
             username = account_info.profile.username
-            cv_path = EmailHelper._get_cv_path(username)
-            template_path = EmailHelper._get_template_path(username)
+            cv_path = EmailHelper.get_cv_path(username)
+            template_path = EmailHelper.get_template_path(username)
             
             # 5. Prepare email components
             subject = self._prepare_subject(email_data, position, account_info.profile.name)
@@ -210,7 +210,7 @@ class EmailSender:
             
             return raw_subject
         
-        return EmailHelper._clean_subject(raw_subject, name)
+        return EmailHelper.clean_subject(raw_subject, name)
     
     def _build_message(self,
                        account_info: CompleteAccountInfo,

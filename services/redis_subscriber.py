@@ -3,14 +3,31 @@
 import asyncio
 import json
 import logging
-from typing import Optional, Callable, Awaitable
+
+from typing import (
+    Optional,
+    Callable,
+    Awaitable,
+    TypedDict,
+    Literal,
+    Union,
+    cast,
+    Any,
+)
 
 log = logging.getLogger(__name__)
+
+
+class RedisMessage(TypedDict):
+    type: Literal["message"]
+    channel: Union[str, bytes]
+    data: Union[str, bytes]
+
 
 class RedisSubscriber:
     def __init__(
         self,
-        redis_client,
+        redis_client: Any,  # redis-py async client (typing belum jelas)
         channel: str,
         message_handler: Callable[[dict], Awaitable[None]],
         shutdown_event: asyncio.Event,
@@ -20,18 +37,20 @@ class RedisSubscriber:
         self.message_handler = message_handler
         self.shutdown_event = shutdown_event
 
-        self.pubsub = None
+        self.pubsub: Optional[Any] = None
         self.task: Optional[asyncio.Task] = None
 
     async def start(self):
         """Start Redis PubSub subscriber"""
         try:
             self.pubsub = self.redis.pubsub()
+            assert self.pubsub is not None
+
             await self.pubsub.subscribe(self.channel)
 
             self.task = asyncio.create_task(
                 self._loop(),
-                name=f"redis_subscriber:{self.channel}"
+                name=f"redis_subscriber:{self.channel}",
             )
 
             log.info(f"[ SUBSCRIBER ] Subscribed to channel: {self.channel}")
@@ -55,18 +74,24 @@ class RedisSubscriber:
             log.info("[ SUBSCRIBER ] Unsubscribed and closed")
 
     async def _loop(self):
-        """Main PubSub loop"""
         log.info("[ SUBSCRIBER ] Listening for messages...")
+        assert self.pubsub is not None  
+
 
         try:
             while not self.shutdown_event.is_set():
                 try:
-                    message = await asyncio.wait_for(
+                    raw_message = await asyncio.wait_for(
                         self.pubsub.get_message(ignore_subscribe_messages=True),
-                        timeout=1.0
+                        timeout=1.0,
                     )
 
-                    if message and message.get("type") == "message":
+                    if raw_message is None:
+                        continue
+
+                    message = cast(RedisMessage, raw_message)
+
+                    if message["type"] == "message":
                         await self._handle_message(message)
 
                 except asyncio.TimeoutError:
@@ -80,7 +105,7 @@ class RedisSubscriber:
             log.info("[ SUBSCRIBER ] Loop cancelled")
             raise
 
-    async def _handle_message(self, message: dict):
+    async def _handle_message(self, message: RedisMessage):
         try:
             raw_data = message["data"]
 
