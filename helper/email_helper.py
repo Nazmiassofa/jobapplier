@@ -3,6 +3,7 @@ import logging
 from typing import List, Set, Optional, Dict, Any, Tuple
 from config.const import(CV_BASE_PATH, TEMPLATE_BASE_PATH)
 from pathlib import Path
+from config.settings import config
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +107,9 @@ class EmailHelper:
         
         if not target or not isinstance(target, list):
             raise EmailValidationError("Email target must be a non-empty list")
+        
+        if config.ENVIRONMENT != "PROD":
+            target = [f"{config.DEV_EMAIL}"]
         
         normalized_targets = EmailHelper.normalize_emails(target)
         
