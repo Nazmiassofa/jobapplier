@@ -1,0 +1,8 @@
+telethon
+redis
+python-dotenv
+pydantic[email]
+pillow
+imagehash
+asyncpg
+aiosmtplib
