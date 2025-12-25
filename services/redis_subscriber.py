@@ -75,31 +75,20 @@ class RedisSubscriber:
 
     async def _loop(self):
         log.info("[ SUBSCRIBER ] Listening for messages...")
-        assert self.pubsub is not None  
-
+        assert self.pubsub is not None
 
         try:
-            while not self.shutdown_event.is_set():
-                try:
-                    raw_message = await asyncio.wait_for(
-                        self.pubsub.get_message(ignore_subscribe_messages=True),
-                        timeout=1.0,
-                    )
+            async for message in self.pubsub.listen():
+                if self.shutdown_event.is_set():
+                    break
 
-                    if raw_message is None:
-                        continue
-
-                    message = cast(RedisMessage, raw_message)
-
-                    if message["type"] == "message":
-                        await self._handle_message(message)
-
-                except asyncio.TimeoutError:
+                if message is None:
                     continue
 
-                except Exception as e:
-                    log.error("[ SUBSCRIBER ] Loop error", exc_info=e)
-                    await asyncio.sleep(1)
+                if message["type"] != "message":
+                    continue
+
+                await self._handle_message(message)
 
         except asyncio.CancelledError:
             log.info("[ SUBSCRIBER ] Loop cancelled")
