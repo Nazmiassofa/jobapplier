@@ -89,7 +89,16 @@ class AutoEmailer:
 
     async def _process_job_application(self, extracted_data: dict):
         position = extracted_data.get("position", "Unknown Position")
-        targets = extracted_data.get("email", [])
+        targets = extracted_data.get("email") or []
+
+        if not isinstance(targets, list):
+            targets = [targets]
+
+        if not targets:
+            log.warning(
+                f"[ PROCESSOR ] No email targets for position: {position}"
+            )
+            return
 
         log.info(
             f"[ PROCESSOR ] Processing job application - "
