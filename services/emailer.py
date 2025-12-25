@@ -67,7 +67,7 @@ class EmailSender:
             
             # 2. Validate and extract data
             target_emails, position, job_gender = EmailHelper._validate_and_extract(email_data)
-            
+                        
             # 3. Check business rules
             if not await self._should_send_email(
                 account_info, target_emails, position, job_gender

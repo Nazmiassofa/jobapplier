@@ -89,7 +89,7 @@ async def run_all_tests():
         email_data = {
             "is_job_vacancy": True,
             "email": ["nizarulul1@gmail.com"],
-            "position": "supervisor",
+            "position": "security",
             "subject_email": "Lowongan Pekerjaan_tukang cumi",
             "gender_required": "male"
         }

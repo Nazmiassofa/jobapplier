@@ -114,7 +114,6 @@ class AccountDataService:
             keywords = blocked.get("keywords", [])
             for keyword in keywords:
                 if keyword.lower() in position_lower:
-                    log.info(f"[ ACCOUNT DATA SERVICE ] Blocked by keyword: {keyword}")
                     return True
             
             # Check regex patterns
@@ -122,7 +121,6 @@ class AccountDataService:
             for pattern in patterns:
                 try:
                     if re.search(pattern, position_lower):
-                        log.info(f"[ ACCOUNT DATA SERVICE ] Blocked by regex: {pattern}")
                         return True
                 except re.error:
                     log.warning(f"[ ACCOUNT DATA SERVICE ] Invalid regex: {pattern}")
