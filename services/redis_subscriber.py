@@ -27,7 +27,7 @@ class RedisMessage(TypedDict):
 class RedisSubscriber:
     def __init__(
         self,
-        redis_client: Any,  # redis-py async client (typing belum jelas)
+        redis_client: Any,  
         channel: str,
         message_handler: Callable[[dict], Awaitable[None]],
         shutdown_event: asyncio.Event,

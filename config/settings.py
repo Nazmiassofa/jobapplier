@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
 @dataclass(slots=True)
 class Settings:
     # Redis
@@ -30,7 +29,7 @@ class Settings:
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "DEV")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
-    # Class variable (bukan field dataclass)
+    # Class variable 
     BASE_DIR: ClassVar[Path] = Path(__file__).resolve().parent.parent
 
     def __post_init__(self) -> None:
@@ -40,6 +39,8 @@ class Settings:
                 "DB_USER": self.DB_USER,
                 "DB_PASSWORD": self.DB_PASSWORD,
                 "SMTP_SERVER": self.SMTP_SERVER,
+                "REDIS_HOST": self.REDIS_HOST,
+                "REDIS_PASSWORD": self.REDIS_PASSWORD,
             }
             missing = [k for k, v in required.items() if not v]
             if missing:
