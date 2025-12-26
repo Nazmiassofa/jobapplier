@@ -4,6 +4,8 @@ import logging
 import asyncio
 from typing import Optional
 
+from services.email_stats import EmailLogStats
+
 from core import redis, db
 from config.logger import setup_logging
 from config.const import JOB_VACANCY_CHANNEL
@@ -15,6 +17,9 @@ log = logging.getLogger(__name__)
 
 class AutoEmailer:
     def __init__(self):
+        
+        self.stats = EmailLogStats()
+        
         self.shutdown_event = asyncio.Event()
         self.shutdown_lock = asyncio.Lock()
         self.stopped = False
@@ -22,7 +27,9 @@ class AutoEmailer:
         self.redis = None
         self.subscriber: Optional[RedisSubscriber] = None
 
-        self.batch_processor = BatchEmailProcessor()
+        self.batch_processor = BatchEmailProcessor(self.stats)
+        self.stats_task = None
+        
 
     async def __aenter__(self):
         await self.start()
@@ -30,6 +37,15 @@ class AutoEmailer:
 
     async def __aexit__(self, exc_type, exc, tb):
         await self.stop()
+            
+    async def _log_stats_periodically(self):
+        """Log stats setiap 1 jam"""
+        while not self.shutdown_event.is_set():
+            try:
+                await asyncio.sleep(3600)  # 1 jam
+                log.info(f"\n{self.stats.get_summary()}")
+            except asyncio.CancelledError:
+                break
 
     async def start(self):
         log.info("[ AUTO EMAILER ] Starting up...")
@@ -44,6 +60,8 @@ class AutoEmailer:
             shutdown_event=self.shutdown_event,
         )
         await self.subscriber.start()
+        
+        self.stats_task = asyncio.create_task(self._log_stats_periodically())
 
         log.info("[ AUTO EMAILER ] Startup complete")
 
@@ -54,6 +72,14 @@ class AutoEmailer:
             self.stopped = True
 
         log.info("[ AUTO EMAILER ] Shutting down...")
+        
+        if self.stats_task:  
+            self.stats_task.cancel()
+            try:
+                await self.stats_task
+            except asyncio.CancelledError:
+                pass
+    
         self.shutdown_event.set()
 
         if self.subscriber:
@@ -66,12 +92,6 @@ class AutoEmailer:
 
     async def _handle_payload(self, payload: dict):
         """Business logic only"""
-        log.info(
-            f"[ SUBSCRIBER ] Received message - "
-            f"Type: {payload.get('type')}, "
-            f"Source: {payload.get('source')}, "
-            f"Timestamp: {payload.get('timestamp')}"
-        )
 
         if payload.get("type") != "job_vacancy":
             return
@@ -88,22 +108,14 @@ class AutoEmailer:
         await self._process_job_application(extracted_data)
 
     async def _process_job_application(self, extracted_data: dict):
-        position = extracted_data.get("position", "Unknown Position")
+        # position = extracted_data.get("position", "Unknown Position")
         targets = extracted_data.get("email") or []
 
         if not isinstance(targets, list):
             targets = [targets]
 
         if not targets:
-            log.warning(
-                f"[ PROCESSOR ] No email targets for position: {position}"
-            )
             return
-
-        log.info(
-            f"[ PROCESSOR ] Processing job application - "
-            f"Position: {position}, Targets: {len(targets)}"
-        )
 
         results = await self.batch_processor.process_job_application(extracted_data)
 

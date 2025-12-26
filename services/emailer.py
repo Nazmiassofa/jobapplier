@@ -9,6 +9,7 @@ from pathlib import Path
 from helper.email_helper import EmailHelper
 
 from config.const import FEMALE_KEYWORDS, MALE_KEYWORDS
+from .email_stats import EmailLogStats
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -32,9 +33,11 @@ class EmailValidationError(Exception):
 class EmailSender:
     """Simplified email sender with gender-based filtering."""
     
-    def __init__(self):
+    def __init__(self, stats: EmailLogStats):
         
         self._template_cache: dict[str, str] = {}
+        self.stats = stats  
+
     
     async def send_email_for_account(self, 
                                      account_id: int,
@@ -102,6 +105,8 @@ class EmailSender:
                 [(target, account_info.account.email) for target in target_emails]
             )
             
+            self.stats.emails_sent += len(target_emails)
+            
             log.info(
                 f"[ EMAILER ] ✅ Email sent from {account_info.account.email} "
                 f"to {len(target_emails)} recipients - Position: {position}"
@@ -117,6 +122,7 @@ class EmailSender:
             return False
         
         except Exception as e:
+            self.stats.failed += 1
             log.error(f"[ EMAILER ] Unexpected error: {e}", exc_info=True)
             return False
 
@@ -143,6 +149,7 @@ class EmailSender:
                     f"[ EMAILER ] Skipped: Female-only job for male user "
                     f"({account_info.profile.name}) - {position}"
                 )
+                self.stats.unmatch_gender += 1
                 return False
             
             if user_gender == "female" and job_gender_lower in MALE_KEYWORDS:
@@ -150,6 +157,7 @@ class EmailSender:
                     f"[ EMAILER ] Skipped: Male-only job for female user "
                     f"({account_info.profile.name}) - {position}"
                 )
+                self.stats.unmatch_gender += 1
                 return False
         
         # 2. Check blocked positions (from JSON config)
@@ -158,6 +166,7 @@ class EmailSender:
                 f"[ EMAILER ] Skipped: Blocked position for "
                 f"{account_info.profile.name} - {position}"
             )
+            self.stats.unrelevan_position += 1
             return False
         
         # 3. Check duplicates
@@ -169,6 +178,7 @@ class EmailSender:
                         f"[ EMAILER ] Skipped: Already sent to {target_email} "
                         f"from {sender_email}"
                     )
+                    self.stats.duplicate += 1
                     return False
             return True
         except Exception as e:
@@ -270,8 +280,9 @@ class EmailSender:
 class BatchEmailProcessor:
     """Process job applications across multiple accounts."""
     
-    def __init__(self):
-        self.sender = EmailSender()
+    def __init__(self, stats: EmailLogStats):
+        self.sender = EmailSender(stats)
+        self.stats = stats
     
     async def process_job_application(self, email_data: dict) -> dict[str, bool]:
         """
@@ -280,6 +291,7 @@ class BatchEmailProcessor:
         Returns:
             Dict mapping account email to success status
         """
+        self.stats.processed += 1
         results = {}
         
         try:
@@ -302,13 +314,6 @@ class BatchEmailProcessor:
                         exc_info=True
                     )
                     results[account_email] = False
-            
-            # Summary
-            success_count = sum(1 for v in results.values() if v)
-            log.info(
-                f"[ BATCH PROCESSOR ] Summary: {success_count}/{len(results)} "
-                f"accounts sent successfully"
-            )
             
             return results
             

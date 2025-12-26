@@ -11,6 +11,7 @@ from services.emailer import BatchEmailProcessor, EmailSender
 # Setup logging
 
 setup_logging()
+
 log = logging.getLogger(__name__)
 
 
@@ -88,8 +89,8 @@ async def run_all_tests():
     
         email_data = {
             "is_job_vacancy": True,
-            "email": ["nizarulul1@gmail.com"],
-            "position": "security",
+            "email": ["nizarululazmiih@gmail.com"],
+            "position": "Perawat",
             "subject_email": "Lowongan Pekerjaan_tukang cumi",
             "gender_required": "male"
         }

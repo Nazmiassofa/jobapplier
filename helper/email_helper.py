@@ -108,8 +108,8 @@ class EmailHelper:
         if not target or not isinstance(target, list):
             raise EmailValidationError("Email target must be a non-empty list")
         
-        if config.ENVIRONMENT != "PROD":
-            target = [f"{config.DEV_EMAIL}"]
+        # if config.ENVIRONMENT != "PROD":
+        #     target = [f"{config.DEV_EMAIL}"]
         
         normalized_targets = EmailHelper.normalize_emails(target)
         
