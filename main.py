@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import signal
 from typing import Optional
 
 from services.email_stats import EmailLogStats
@@ -20,7 +21,6 @@ class AutoEmailer:
     def __init__(self):
         
         self.stats = EmailLogStats()
-        
         self.shutdown_event = asyncio.Event()
         self.shutdown_lock = asyncio.Lock()
         self.stopped = False
@@ -30,7 +30,6 @@ class AutoEmailer:
 
         self.batch_processor = BatchEmailProcessor(self.stats)
         self.stats_task = None
-        
 
     async def __aenter__(self):
         await self.start()
@@ -49,7 +48,6 @@ class AutoEmailer:
                 break
 
     async def start(self):
-        
         log.info("[ AUTO EMAILER ] Starting up...")
 
         self.redis = await redis.init_redis()
@@ -111,9 +109,9 @@ class AutoEmailer:
             log.debug(f"[ SUBSCRIBER ] No email provide for payload : {extracted_data}")
             return
 
-        await self._process_job_application(extracted_data)
+        await self._process_email(extracted_data)
 
-    async def _process_job_application(self, extracted_data: dict):
+    async def _process_email(self, extracted_data: dict):
 
         targets = extracted_data.get("email")
 
@@ -131,17 +129,27 @@ class AutoEmailer:
         if failed:
             failed_accounts = [k for k, v in results.items() if not v]
             log.warning(f"[ PROCESSOR ] Failed accounts: {', '.join(failed_accounts)}")
-
-
+    
 async def main():
+    shutdown_event = asyncio.Event()
+    
+    def signal_handler(sig):
+        log.info(f"[ AUTO EMAILER ] Received signal {sig}, initiating shutdown...")
+        shutdown_event.set()
+    
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, lambda s=sig: signal_handler(s))
+    
     try:
         async with AutoEmailer():
             log.info("[ AUTO EMAILER ] Running...")
-            await asyncio.Event().wait()
-    except asyncio.CancelledError:
-        pass
-    except KeyboardInterrupt:
-        pass
+            await shutdown_event.wait()
+            log.info("[ AUTO EMAILER ] Shutdown signal received")
+    except Exception as e:
+        log.error(f"[ AUTO EMAILER ] Error: {e}", exc_info=True)
+    finally:
+        log.info("[ AUTO EMAILER ] Exiting...")
 
 if __name__ == "__main__":
     asyncio.run(main())

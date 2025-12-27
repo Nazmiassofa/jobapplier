@@ -23,7 +23,6 @@ class RedisMessage(TypedDict):
     channel: Union[str, bytes]
     data: Union[str, bytes]
 
-
 class RedisSubscriber:
     def __init__(
         self,
