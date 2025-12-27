@@ -13,6 +13,7 @@ from services.emailer import BatchEmailProcessor
 from services.redis_subscriber import RedisSubscriber
 
 setup_logging()
+
 log = logging.getLogger(__name__)
 
 class AutoEmailer:
@@ -39,15 +40,16 @@ class AutoEmailer:
         await self.stop()
             
     async def _log_stats_periodically(self):
-        """Log stats setiap 1 jam"""
+        """ Log periodic every 1 hours """
         while not self.shutdown_event.is_set():
             try:
-                await asyncio.sleep(3600)  # 1 jam
+                await asyncio.sleep(3600) 
                 log.info(f"\n{self.stats.get_summary()}")
             except asyncio.CancelledError:
                 break
 
     async def start(self):
+        
         log.info("[ AUTO EMAILER ] Starting up...")
 
         self.redis = await redis.init_redis()
@@ -97,19 +99,23 @@ class AutoEmailer:
             return
 
         extracted_data = payload.get("extracted_data")
+
         if not extracted_data:
-            log.warning("[ SUBSCRIBER ] No extracted_data")
             return
 
         if not extracted_data.get("is_job_vacancy"):
-            log.info("[ SUBSCRIBER ] Not a job vacancy, skipping")
+            log.debug(f"[ SUBSCRIBER ] Not a job vacancy for payload : {extracted_data}")
+            return
+        
+        if not extracted_data.get("email"):
+            log.debug(f"[ SUBSCRIBER ] No email provide for payload : {extracted_data}")
             return
 
         await self._process_job_application(extracted_data)
 
     async def _process_job_application(self, extracted_data: dict):
-        # position = extracted_data.get("position", "Unknown Position")
-        targets = extracted_data.get("email") or []
+
+        targets = extracted_data.get("email")
 
         if not isinstance(targets, list):
             targets = [targets]

@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict
 
 @dataclass
 class EmailLogStats:
@@ -19,16 +18,20 @@ class EmailLogStats:
     
     def get_summary(self) -> str:
         uptime = datetime.now() - self.last_reset
-        return f"""
-╔══════════════════════════════════════════════╗
-║         EMAIL STATS - Last {uptime.seconds//3600}h {(uptime.seconds//60)%60}m          ║
-╠══════════════════════════════════════════════╣
-║ Jobs Processed    : {self.processed:>5}      ║
-║ Emails Sent       : {self.emails_sent:>5} ✅ ║
-║ Failed            : {self.failed:>5} ❌      ║
-╠══════════════════════════════════════════════╣
-║ Skipped (Gender)  : {self.unmatch_gender:>5} ║
-║ Skipped (Blocked) : {self.unrelevan_position:>5}║
-║ Skipped (Duplicate): {self.duplicate:>5}     ║
-╚══════════════════════════════════════════════╝
-        """.strip()
+        hours = uptime.seconds // 3600
+        minutes = (uptime.seconds // 60) % 60
+        
+        return (
+            "\n"
+            "╔════════════════════════════════════════════════╗\n"
+            f"║         EMAIL STATS - Last {hours}h {minutes}m{' ' * (13 - len(str(hours)) - len(str(minutes)))}║\n"
+            "╠════════════════════════════════════════════════╣\n"
+            f"║ Jobs Processed     : {self.processed:>5}                 ║\n"
+            f"║ Emails Sent        : {self.emails_sent:>5} ✅              ║\n"
+            f"║ Failed             : {self.failed:>5} ❌              ║\n"
+            "╠════════════════════════════════════════════════╣\n"
+            f"║ Skipped (Gender)   : {self.unmatch_gender:>5}                 ║\n"
+            f"║ Skipped (Blocked)  : {self.unrelevan_position:>5}                 ║\n"
+            f"║ Skipped (Duplicate): {self.duplicate:>5}                 ║\n"
+            "╚════════════════════════════════════════════════╝\n"
+        )

@@ -3,7 +3,6 @@ import logging
 from typing import List, Set, Optional, Dict, Any, Tuple
 from config.const import(CV_BASE_PATH, TEMPLATE_BASE_PATH)
 from pathlib import Path
-from config.settings import config
 
 log = logging.getLogger(__name__)
 
@@ -55,34 +54,25 @@ class EmailHelper:
 
         original_subject = subject
         
-        # Gunakan pendekatan string manipulation tanpa regex kompleks
         words = []
         i = 0
         n = len(subject)
         
         while i < n:
-            # Cek apakah substring mulai dari i adalah 'nama' (case insensitive)
             if i + 4 <= n and subject[i:i+4].lower() == 'nama':
-                # Periksa apakah ini benar-benar kata 'nama' (bukan bagian dari kata lain)
                 is_word_start = (i == 0 or not subject[i-1].isalnum())
                 is_word_end = (i + 4 == n or not subject[i+4].isalnum() or 
                             subject[i+4] in ['-', '_'])
                 
                 if is_word_start and is_word_end:
-                    # Ini adalah kata 'nama' yang valid
-                    # Periksa apakah diikuti oleh separator
                     if i + 4 < n and subject[i+4] in ['-', '_']:
-                        # 'nama' diikuti separator, ganti 'nama' saja
                         words.append(f'{name}')
-                        i += 4  # Lewati 'nama'
-                        # Separator akan ditambahkan di iterasi berikutnya
+                        i += 4  
                     else:
-                        # 'nama' tidak diikuti separator, ganti seluruhnya
                         words.append(f'{name}')
-                        i += 4  # Lewati 'nama'
+                        i += 4 
                     continue
             
-            # Jika bukan 'nama', tambahkan karakter saat ini
             words.append(subject[i])
             i += 1
         
@@ -101,22 +91,20 @@ class EmailHelper:
         ) -> Tuple[Set[str], str, Optional[str]]:
     
         """Validate email data and extract required fields."""
-        target = email_data.get("email")
-        position = email_data.get("position", "").strip()
-        job_gender = email_data.get("gender_required")
         
+        
+        target = email_data.get("email")
         if not target or not isinstance(target, list):
             raise EmailValidationError("Email target must be a non-empty list")
         
-        # if config.ENVIRONMENT != "PROD":
-        #     target = [f"{config.DEV_EMAIL}"]
-        
         normalized_targets = EmailHelper.normalize_emails(target)
-        
         if not normalized_targets:
             raise EmailValidationError("No valid email addresses found")
         
+        position = (email_data.get("position") or "").strip()
         if not position:
             raise EmailValidationError("Position is required")
+        
+        job_gender = email_data.get("gender_required")
         
         return normalized_targets, position, job_gender
