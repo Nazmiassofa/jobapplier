@@ -92,7 +92,7 @@ class EmailSender:
             template_path = EmailHelper.get_template_path(username)
             
             # 5. Prepare email components
-            subject = self._prepare_subject(email_data, position, account_info.profile.name)
+            subject = self._prepare_subject(email_data, position, account_info)
             body_html = await self._load_and_render_template(
                 template_path,
                 {
@@ -134,6 +134,23 @@ class EmailSender:
             self.stats.failed += 1
             log.error(f"[ EMAILER ] Unexpected error: {e}", exc_info=True)
             return False
+        
+    def _is_gender_compatible(self, user_gender: str, job_gender: Optional[str]) -> bool:
+        """ 
+        Check gender required before send email
+        """
+        if not job_gender:
+            return True
+        
+        job_gender_lower = job_gender.lower()
+        user_gender_lower = user_gender.lower()
+        
+        if user_gender_lower == "male" and job_gender_lower in FEMALE_KEYWORDS:
+            return False
+        if user_gender_lower == "female" and job_gender_lower in MALE_KEYWORDS:
+            return False
+        
+        return True
 
     
     async def _should_send_email(self,
@@ -147,27 +164,18 @@ class EmailSender:
         1. Gender filtering (auto-block opposite gender)
         2. Blocked positions (from account_data)
         3. Duplicate checking
-        """
+        """        
         
-        if job_gender:
-            job_gender_lower = job_gender.lower()
-            user_gender = account_info.profile.gender.lower()
-            
-            if user_gender == "male" and job_gender_lower in FEMALE_KEYWORDS:
-                log.warning(
-                    f"[ EMAILER ] Skipped: Female-only job for male user "
-                    f"({account_info.profile.name}) - {position}"
-                )
-                self.stats.unmatch_gender += 1
-                return False
-            
-            if user_gender == "female" and job_gender_lower in MALE_KEYWORDS:
-                log.warning(
-                    f"[ EMAILER ] Skipped: Male-only job for female user "
-                    f"({account_info.profile.name}) - {position}"
-                )
-                self.stats.unmatch_gender += 1
-                return False
+        user_gender = account_info.profile.gender.lower()
+        
+        if not self._is_gender_compatible(user_gender, job_gender):
+            gender_label = "female-only" if job_gender.lower() in FEMALE_KEYWORDS else "male-only"
+            log.warning(
+                f"[ EMAILER ] Skipped: {gender_label} job for {user_gender} user "
+                f"({account_info.profile.name}) - {position}"
+            )
+            self.stats.unmatch_gender += 1
+            return False
         
         # 2. Check blocked positions (from JSON config)
         if AccountDataService.is_position_blocked(account_info.data, position):
@@ -212,24 +220,37 @@ class EmailSender:
         
         template = self._template_cache[template_path_str]
         return EmailHelper.render_template(template, template_data)
-    
-    def _prepare_subject(self, 
-                         email_data: dict, 
-                         position: str,
-                         name: str) -> str:
         
-        """Prepare email subject with name replacement."""
+    def _prepare_subject(self, 
+                        email_data: dict, 
+                        position: str,
+                        account_info: CompleteAccountInfo) -> str:
+        """
+        Prepare email subject with placeholder replacement.
+        
+        Available placeholders:
+        - {{name}}: User's full name
+        - {{username}}: User's username
+        - {{position}}: Job position
+        - {{phone}}: User's phone number
+        - {{email}}: User's email
+        """
         raw_subject = email_data.get("subject_email")
         
+        # Default subject if none provided
         if not raw_subject:
-            raw_subject = f"Lamaran Pekerjaan - {name}"
-            
-            if position:
-                raw_subject = f"{position} - {name}"
-            
-            return raw_subject
+            return f"{position} - {account_info.profile.name}" if position else f"Lamaran Pekerjaan - {account_info.profile.name}"
         
-        return EmailHelper.clean_subject(raw_subject, name)
+        # Prepare data for placeholder replacement
+        subject_data = {
+            "name": account_info.profile.name,
+            "username": account_info.profile.username,
+            "position": position,
+            "phone": account_info.profile.phone,
+            "email": account_info.account.email,
+        }
+        
+        return EmailHelper.clean_subject(raw_subject, subject_data)
     
     def _build_message(self,
                        account_info: CompleteAccountInfo,

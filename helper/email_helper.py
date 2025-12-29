@@ -1,4 +1,7 @@
+## helper/email_helper.py
+
 import logging
+import re
 
 from typing import List, Set, Optional, Dict, Any, Tuple
 from config.const import(CV_BASE_PATH, TEMPLATE_BASE_PATH)
@@ -12,6 +15,63 @@ class EmailValidationError(Exception):
 
 
 class EmailHelper:
+            
+    @staticmethod
+    def clean_subject(subject: str, data: Dict[str, Any]) -> str:
+        """
+        Replace {{placeholder}} in subject with user data.
+        Unknown placeholders will be removed entirely.
+        
+        Args:
+            subject: Subject template with {{placeholders}}
+            data: Dict containing replacement values
+            
+        Example:
+            subject = "Lowongan_{{name}}_{{position}}_{{domisili}}"
+            data = {"name": "John", "position": "Backend Developer"}
+            result = "Lowongan_John_Backend Developer"
+        """
+        original_subject = subject
+        
+        # Find all {{placeholder}} patterns
+        pattern = r'\{\{(\w+)\}\}'
+        
+        def replace_placeholder(match):
+            key = match.group(1)
+            value = data.get(key)
+            
+            if value is None:
+                log.warning(
+                    f"[ EMAILER ] Placeholder '{{{{{key}}}}}' not found in data, removing it"
+                )
+                return ""  # Remove placeholder entirely
+            
+            return str(value)
+        
+        cleaned_subject = re.sub(pattern, replace_placeholder, subject)
+        
+        # Clean up extra spaces, underscores, and dashes
+        cleaned_subject = re.sub(r'_{2,}', '_', cleaned_subject)  # Multiple underscores → single
+        cleaned_subject = re.sub(r'-{2,}', '-', cleaned_subject)  # Multiple dashes → single
+        cleaned_subject = re.sub(r'\s{2,}', ' ', cleaned_subject)  # Multiple spaces → single
+        cleaned_subject = re.sub(r'[_\-\s]+$', '', cleaned_subject)  # Trailing separators
+        cleaned_subject = re.sub(r'^[_\-\s]+', '', cleaned_subject)  # Leading separators
+        
+        cleaned_subject = cleaned_subject.strip()
+                
+        if not cleaned_subject:
+            name = data.get("name", "Applicant")
+            log.warning(
+                f"[ EMAILER ] All placeholders removed from '{original_subject}', "
+                f"using default subject"
+            )
+            return f"Lamaran Pekerjaan - {name}"
+        
+        # Log changes if any
+        if cleaned_subject != original_subject:
+            log.info(f"[ EMAILER ] Subject cleaned: '{original_subject}' → '{cleaned_subject}'")
+        
+        return cleaned_subject
     
     @staticmethod
     def get_cv_path(username: str) -> Path:
@@ -43,47 +103,6 @@ class EmailHelper:
                     normalized.add(cleaned)
         return normalized
     
-    @staticmethod
-    def clean_subject(subject: str, name: str) -> str:
-        """
-        Clean subject khusus untuk auto apply lowongan kerja.
-        Hanya ganti kata 'Nama' (berbagai case) dengan nama user.
-        """
-        if not subject:
-            return f"Lamaran Pekerjaan - {name}"
-
-        original_subject = subject
-        
-        words = []
-        i = 0
-        n = len(subject)
-        
-        while i < n:
-            if i + 4 <= n and subject[i:i+4].lower() == 'nama':
-                is_word_start = (i == 0 or not subject[i-1].isalnum())
-                is_word_end = (i + 4 == n or not subject[i+4].isalnum() or 
-                            subject[i+4] in ['-', '_'])
-                
-                if is_word_start and is_word_end:
-                    if i + 4 < n and subject[i+4] in ['-', '_']:
-                        words.append(f'{name}')
-                        i += 4  
-                    else:
-                        words.append(f'{name}')
-                        i += 4 
-                    continue
-            
-            words.append(subject[i])
-            i += 1
-        
-        # Gabungkan semua bagian
-        subject = ''.join(words)
-        
-        # Log perubahan jika ada
-        if subject != original_subject:
-            log.info(f"[ EMAILER ] Subject cleaned: '{original_subject}' → '{subject}'")
-        
-        return subject
     
     @staticmethod
     def _validate_and_extract(

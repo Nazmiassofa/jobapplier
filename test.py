@@ -7,6 +7,7 @@ from pathlib import Path
 from core import db
 from config.logger import setup_logging
 from services.emailer import BatchEmailProcessor, EmailSender
+from services.email_stats import EmailLogStats
 
 # Setup logging
 
@@ -30,7 +31,7 @@ async def test_single_account(email_data):
     log.info("TEST 1: Single Account Email Test")
     log.info("="*60)
     
-    sender = EmailSender()
+    sender = EmailSender(EmailLogStats)
     
     # Test with account ID 1
     account_id = 1
@@ -57,7 +58,7 @@ async def test_batch_processing(email_data):
     log.info("TEST 2: Batch Processing Test")
     log.info("="*60)
     
-    processor = BatchEmailProcessor()
+    processor = BatchEmailProcessor(EmailLogStats)
     
     log.info(f"[ TEST ] Testing batch processing for all active accounts")
     
@@ -90,7 +91,7 @@ async def run_all_tests():
         email_data = {
             "is_job_vacancy": True,
             "email": ["nizarululazmiih@gmail.com"],
-            "position": "Perawat",
+            "position": "IT support",
             "subject_email": "Lowongan Pekerjaan_tukang cumi",
             "gender_required": "male"
         }
