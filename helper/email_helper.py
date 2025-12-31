@@ -98,7 +98,7 @@ class EmailHelper:
         normalized = set()
         for email in emails:
             if isinstance(email, str):
-                cleaned = email.lower().strip()
+                cleaned = email.strip().replace(" ", "")
                 if cleaned:
                     normalized.add(cleaned)
         return normalized
@@ -127,3 +127,4 @@ class EmailHelper:
         job_gender = email_data.get("gender_required")
         
         return normalized_targets, position, job_gender
+    

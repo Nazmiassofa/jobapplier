@@ -78,7 +78,7 @@ class EmailSender:
                     e,
                     extra={"account_id": email_data.get("account_id")}
                 )
-                return  
+                return False
 
             # 3. Check business rules
             if not await self._should_send_email(
@@ -168,14 +168,15 @@ class EmailSender:
         
         user_gender = account_info.profile.gender.lower()
         
-        if not self._is_gender_compatible(user_gender, job_gender):
-            gender_label = "female-only" if job_gender.lower() in FEMALE_KEYWORDS else "male-only"
-            log.warning(
-                f"[ EMAILER ] Skipped: {gender_label} job for {user_gender} user "
-                f"({account_info.profile.name}) - {position}"
-            )
-            self.stats.unmatch_gender += 1
-            return False
+        if job_gender:
+            if not self._is_gender_compatible(user_gender, job_gender):
+                gender_label = "female-only" if job_gender.lower() in FEMALE_KEYWORDS else "male-only"
+                log.warning(
+                    f"[ EMAILER ] Skipped: {gender_label} job for {user_gender} user "
+                    f"({account_info.profile.name}) - {position}"
+                )
+                self.stats.unmatch_gender += 1
+                return False
         
         # 2. Check blocked positions (from JSON config)
         if AccountDataService.is_position_blocked(account_info.data, position):
